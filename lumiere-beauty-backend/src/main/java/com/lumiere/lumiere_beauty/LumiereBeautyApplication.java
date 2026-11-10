@@ -1,13 +1,13 @@
-package com.lumiere.demo;
+package com.lumiere.lumiere_beauty;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class DemoApplication {
+public class LumiereBeautyApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(DemoApplication.class, args);
+		SpringApplication.run(LumiereBeautyApplication.class, args);
 	}
 
 }

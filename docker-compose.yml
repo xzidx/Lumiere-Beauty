@@ -1,0 +1,25 @@
+services:
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./lumiere-beauty-frontend
+      dockerfile: Dockerfile
+    container_name: lumiere-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./lumiere-beauty-backend
+      dockerfile: Dockerfile
+    container_name: lumiere-backend
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

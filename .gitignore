@@ -1,0 +1,22 @@
+# Node.js
+**/node_modules/
+**/dist/
+
+# Java / Maven
+**/target/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# IDE
+.idea/
+*.iml
+
+# Operating system
+.DS_Store
+Thumbs.db
