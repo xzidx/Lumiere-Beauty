@@ -1,4 +1,9 @@
-node_modules
-dist
+### Node.js ###
+node_modules/
+dist/
+
+### Environment Variables ###
 .env
+
+### OS Files ###
 .DS_Store
