@@ -1,8 +1,9 @@
 package com.lumiere.lumiere_beauty.model;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
-import com.lumiere.lumiere_beauty.model.User;
+
+import jakarta.persistence.*;
+
 @Entity
 @Table(name = "carts")
 public class Cart {
@@ -11,7 +12,6 @@ public class Cart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Foreign Key: user_id
     @OneToOne
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
@@ -19,15 +19,35 @@ public class Cart {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    // Default Constructor
     public Cart() {
     }
 
-    // Parameterized Constructor
     public Cart(User user, LocalDateTime createdAt) {
         this.user = user;
         this.createdAt = createdAt;
     }
 
-    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
 }
