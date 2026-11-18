@@ -1,11 +1,15 @@
 package com.lumiere.lumiere_beauty.model;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import com.lumiere.lumiere_beauty.model.User;
+
 @Entity
 @Table(name = "orders")
+@Getter
+@Setter
 public class Order {
 
     @Id
@@ -21,7 +25,7 @@ public class Order {
     @ManyToOne
     @JoinColumn(name = "address_id", nullable = false)
     private Address address;
-
+    
     @Column(name = "order_number", unique = true, length = 50)
     private String orderNumber;
 
@@ -50,5 +54,8 @@ public class Order {
         this.createdAt = createdAt;
     }
 
-    // Getters and Setters
+    @PrePersist
+    public void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
 }
