@@ -1,10 +1,13 @@
+
 HELP.md
+
+### Maven ###
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+### Spring Tool Suite ###
 .apt_generated
 .classpath
 .factorypath
@@ -14,7 +17,7 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -31,3 +34,19 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Spring Boot Configuration ###
+**/application.properties
+**/application-local.properties
+
+### Environment Variables ###
+.env
+.env.*
+!.env.example
+
+### Logs ###
+*.log
+
+### OS Generated Files ###
+.DS_Store
+Thumbs.db
