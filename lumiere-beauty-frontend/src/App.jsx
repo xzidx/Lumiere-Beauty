@@ -17,7 +17,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminProducts from './pages/AdminProducts'
 import AdminProductForm from './pages/AdminProductForm'
 import AdminUsers from './pages/AdminUsers'
-
+import Profile from './pages/Profile'
 function ScrollToTop() {
   const { pathname } = useLocation()
 
@@ -47,6 +47,7 @@ function StoreLayout() {
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="*" element={<Home />} />
+        <Route path="/profile" element={<Profile />} />
       </Routes>
 
       <Footer />
