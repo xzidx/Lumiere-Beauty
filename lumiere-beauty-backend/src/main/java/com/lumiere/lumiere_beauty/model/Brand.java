@@ -3,30 +3,38 @@ package com.lumiere.lumiere_beauty.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "brands")
+@Table(name = "brand")
 public class Brand {
 
-    // Primary Key
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Brand Attributes
-    @Column(nullable = false, unique = true, length = 100)
     private String name;
 
-    @Column(columnDefinition = "TEXT")
     private String description;
 
-    // Default Constructor
-    public Brand() {
+    public Long getId() {
+        return id;
     }
 
-    // Parameterized Constructor
-    public Brand(String name, String description) {
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
         this.description = description;
     }
-
-    // Getters and Setters
 }
