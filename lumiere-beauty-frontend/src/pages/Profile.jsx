@@ -1,5 +1,5 @@
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   User,
   Mail,
@@ -17,26 +17,29 @@ import {
 } from 'lucide-react'
 
 export default function Profile() {
+  const navigate = useNavigate()
 
-  // Temporary user data
-  // Later, we will get this from Spring Boot API
-  const [user, setUser] = useState({
-    id: 1,
-    fullName: 'Chan Samnang',
-    email: 'samnang@example.com',
-    phone: '012 345 678',
-    role: 'CUSTOMER',
-    createdAt: '2026-11-19'
-  })
+  // Get logged-in user
+  const [user, setUser] = useState(
+    JSON.parse(localStorage.getItem('user') || 'null')
+  )
 
   const [isEditing, setIsEditing] = useState(false)
 
   const [formData, setFormData] = useState({
-    fullName: user.fullName,
-    email: user.email,
-    phone: user.phone
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
   })
 
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!user) navigate('/login')
+  }, [user, navigate])
+
+  if (!user) return null
+
+  // Update input
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -44,22 +47,31 @@ export default function Profile() {
     })
   }
 
+  // Save changes
   const handleSave = (e) => {
     e.preventDefault()
-    setUser({
-      ...user,
-      ...formData
+
+    const updatedUser = { ...user, ...formData }
+
+    setUser(updatedUser)
+    localStorage.setItem('user', JSON.stringify(updatedUser))
+    setIsEditing(false)
+  }
+
+  // Cancel editing
+  const handleCancel = () => {
+    setFormData({
+      fullName: user.fullName || '',
+      email: user.email || '',
+      phone: user.phone || ''
     })
     setIsEditing(false)
   }
 
-  const handleCancel = () => {
-    setFormData({
-      fullName: user.fullName,
-      email: user.email,
-      phone: user.phone
-    })
-    setIsEditing(false)
+  // Logout
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    navigate('/login')
   }
 
   return (
@@ -109,7 +121,7 @@ export default function Profile() {
 
                 <div className="flex items-center gap-3 text-muted">
                   <CalendarDays size={18} className="text-sage" />
-                  <span>Member since {user.createdAt}</span>
+                  <span>Member since {user.createdAt || 'Recently'}</span>
                 </div>
 
                 <div className="flex items-center gap-3 text-muted">
@@ -148,6 +160,7 @@ export default function Profile() {
 
               <button
                 type="button"
+                onClick={handleLogout}
                 className="flex w-full items-center justify-between px-5 py-4 text-sm font-medium text-red-500 transition hover:bg-red-50"
               >
                 <span className="flex items-center gap-3">
@@ -266,7 +279,7 @@ export default function Profile() {
 
                       <input
                         type="text"
-                        value={user.role}
+                        value={user.role || ''}
                         disabled
                         className="w-full rounded-lg border border-line bg-[#FBF8F2] py-3 pl-11 pr-4 text-sm text-ink opacity-80"
                       />

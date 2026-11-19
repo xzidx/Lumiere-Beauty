@@ -20,9 +20,11 @@ public class UserService {
 
     // Create User
     public User createUser(User user) {
-    user.setPassword(passwordEncoder.encode(user.getPassword()));
-    return userRepository.save(user);
-}
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setRole("CUSTOMER");
+
+        return userRepository.save(user);
+    }
     public User login(String email, String password) {
 
     User user = userRepository.findByEmail(email)
