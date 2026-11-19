@@ -2,54 +2,128 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
 import { useShop } from '../context/ShopContext'
+import axiosClient from '../api/axiosClient'
 
 const empty = {
-    id: '',
     name: '',
     brand: '',
-    category: 'Skincare',
+    category: '',
     price: '',
     stock: '',
     status: 'Active',
-    featured: false,
     imageUrl: '',
     description: ''
 }
 
 export default function AdminProductForm() {
-    const {id}=useParams(); const editing=Boolean(id); const {products,saveProduct}=useShop(); const navigate=useNavigate()
+    const { id } = useParams()
+    const editing = Boolean(id)
 
-    const [form,setForm]=useState(empty); const [error,setError]=useState('')
+    const { products, brands, categories, saveProduct } = useShop()
+    const navigate = useNavigate()
 
+    const [form, setForm] = useState(empty)
+    const [error, setError] = useState('')
+    const [loading, setLoading] = useState(false)
+
+    // Set default category
     useEffect(() => {
-        if(editing) {
-            const found=products.find(p=>p.id===id)
-            if(found)setForm({...found})
+        if (!editing && categories.length > 0) {
+            const skincare = categories.find(c => c.name === 'Skincare')
+
+            setForm(f => ({
+                ...f,
+                category: String(skincare?.id ?? categories[0].id)
+            }))
         }
-    }, [id,editing,products])
+    }, [categories, editing])
+
+    // Load product when editing
+    useEffect(() => {
+        if (editing && brands.length > 0 && categories.length > 0) {
+            const found = products.find(p => p.id === id)
+
+            if (found) {
+                const brand = brands.find(b => b.name === found.brand)
+                const category = categories.find(c => c.name === found.category)
+
+                setForm({
+                    name: found.name || '',
+                    brand: brand ? String(brand.id) : '',
+                    category: category ? String(category.id) : '',
+                    price: found.price ?? '',
+                    stock: found.stock ?? '',
+                    status: found.status || 'Active',
+                    imageUrl: found.imageUrl || '',
+                    description: found.description || ''
+                })
+            }
+        }
+    }, [id, editing, products, brands, categories])
 
     const change = e => {
-        const {name,value,type,checked}=e.target
-        setForm(f=>({...f,[name]:type==='checkbox'?checked:value}))
+        const { name, value } = e.target
+
+        setForm(f => ({
+            ...f,
+            [name]: value
+        }))
     }
 
-    const submit = e => {
+    const submit = async e => {
         e.preventDefault()
+        setError('')
 
-        if(!form.name.trim()||!form.price||!form.stock) {
+        if (!form.name.trim() || form.price === '' || form.stock === '') {
             setError('Please complete the product name, price and stock.')
             return
         }
 
-        const product = {
-            ...form,
-            id:editing?id:`P-${Date.now().toString().slice(-6)}`,
-            price:Number(form.price),
-            stock:Number(form.stock)
+        // Your backend currently has no PUT endpoint.
+        if (editing) {
+            setError('Editing products is not supported by your current backend yet.')
+            return
         }
 
-        saveProduct(product)
-        navigate('/admin/products')
+        const product = {
+            name: form.name,
+            brand: form.brand ? { id: Number(form.brand) } : null,
+            category: form.category ? { id: Number(form.category) } : null,
+            price: Number(form.price),
+            stockQuantity: Number(form.stock),
+            status: form.status,
+            imageUrl: form.imageUrl,
+            description: form.description
+        }
+
+        try {
+            setLoading(true)
+
+            const response = await axiosClient.post('/products', product)
+
+            const saved = response.data
+
+            // Update frontend product list
+            saveProduct({
+                ...saved,
+                id: String(saved.id),
+                brand: saved.brand?.name || '',
+                category: saved.category?.name || '',
+                stock: saved.stockQuantity ?? 0
+            })
+
+            navigate('/admin/products')
+
+        } catch (error) {
+            console.error('Save product error:', error)
+
+            setError(
+                error.response?.data?.message ||
+                'Could not save product. Please check your backend.'
+            )
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
@@ -60,11 +134,11 @@ export default function AdminProductForm() {
 
             <div className="mt-5">
                 <p className="eyebrow text-rose">
-                    {editing?'Catalogue update':'New catalogue item'}
+                    {editing ? 'Catalogue update' : 'New catalogue item'}
                 </p>
 
                 <h1 className="mt-2 font-display text-4xl">
-                    {editing?'Edit product':'Add product'}
+                    {editing ? 'Edit product' : 'Add product'}
                 </h1>
 
                 <p className="mt-2 text-sm text-muted">
@@ -81,16 +155,25 @@ export default function AdminProductForm() {
 
                     <label className="text-xs font-semibold">
                         Brand
-                        <input className="field mt-2" name="brand" value={form.brand} onChange={change} placeholder="Brand name"/>
+                        <select className="field mt-2" name="brand" value={form.brand} onChange={change}>
+                            <option value="">Select brand</option>
+                            {brands.map(brand => (
+                                <option key={brand.id} value={brand.id}>
+                                    {brand.name}
+                                </option>
+                            ))}
+                        </select>
                     </label>
 
                     <label className="text-xs font-semibold">
                         Category
                         <select className="field mt-2" name="category" value={form.category} onChange={change}>
-                            <option>Skincare</option>
-                            <option>Makeup</option>
-                            <option>Haircare</option>
-                            <option>Body</option>
+                            <option value="">Select category</option>
+                            {categories.map(category => (
+                                <option key={category.id} value={category.id}>
+                                    {category.name}
+                                </option>
+                            ))}
                         </select>
                     </label>
 
@@ -121,18 +204,13 @@ export default function AdminProductForm() {
                         Description
                         <textarea className="field mt-2 min-h-28" name="description" value={form.description} onChange={change} placeholder="Describe the product..."/>
                     </label>
-
-                    <label className="flex items-center gap-2 text-sm md:col-span-2">
-                        <input type="checkbox" name="featured" checked={Boolean(form.featured)} onChange={change}/>
-                        Feature this product on the home page
-                    </label>
                 </div>
 
-                {error&&<p className="mt-4 text-sm text-rose">{error}</p>}
+                {error && <p className="mt-4 text-sm text-rose">{error}</p>}
 
                 <div className="mt-7 flex flex-wrap gap-3 border-t border-line pt-6">
-                    <button className="btn-primary">
-                        <Save size={16}/> Save product
+                    <button className="btn-primary" disabled={loading}>
+                        <Save size={16}/> {loading ? 'Saving...' : 'Save product'}
                     </button>
 
                     <Link to="/admin/products" className="btn-outline">
