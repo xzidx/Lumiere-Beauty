@@ -21,7 +21,10 @@ public class UserService {
     // Create User
     public User createUser(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRole("CUSTOMER");
+
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            user.setRole("CUSTOMER");
+        }
 
         return userRepository.save(user);
     }

@@ -1,3 +1,4 @@
+
 import { Link, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import axios from 'axios'
@@ -32,13 +33,28 @@ export default function Auth({ register = false }) {
                     { email, password }
                 )
 
+                // Get user information from backend
+                const user = response.data
+                
+
+                // Check user role
+                if (user.role?.toUpperCase() !== 'ADMIN' &&
+                    user.role?.toUpperCase() !== 'CUSTOMER') {
+                    alert('You do not have permission to access this account.')
+                    return
+                }
+
                 // Save user information
-                localStorage.setItem('user', JSON.stringify(response.data))
+                localStorage.setItem('user', JSON.stringify(user))
 
-                alert(`Welcome back, ${response.data.fullName}!`)
+                alert(`Welcome back, ${user.fullName}!`)
 
-                // Go to Profile page
-                navigate('/profile')
+                // Redirect based on user role
+                if (user.role.toUpperCase() === 'ADMIN') {
+                    navigate('/admin')
+                } else {
+                    navigate('/profile')
+                }
             }
 
             console.log(response.data)

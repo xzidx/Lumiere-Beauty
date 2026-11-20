@@ -1,18 +1,45 @@
+
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, Package } from 'lucide-react'
 import { useShop } from '../context/ShopContext'
+import axiosClient from '../api/axiosClient'
 
 export default function AdminProducts() {
-    const {products,deleteProduct}=useShop(); const [q,setQ]=useState(''); const [status,setStatus]=useState('All')
+    const { products, deleteProduct } = useShop()
 
-    const list=useMemo(
-        ()=>products.filter(p=>(status==='All'||p.status===status)&&`${p.name} ${p.brand} ${p.id}`.toLowerCase().includes(q.toLowerCase())),
-        [products,q,status]
+    const [q, setQ] = useState('')
+    const [status, setStatus] = useState('All')
+    const [loading, setLoading] = useState(false)
+
+    const list = useMemo(
+        () => products.filter(p =>
+            (status === 'All' || p.status === status) &&
+            `${p.name} ${p.brand} ${p.id}`.toLowerCase().includes(q.toLowerCase())
+        ),
+        [products, q, status]
     )
 
-    const remove=(p)=>{
-        if(window.confirm(`Delete ${p.name}? This only changes local demo data.`))deleteProduct(p.id)
+    // Delete product from database
+    const remove = async (p) => {
+        if (!window.confirm(`Delete ${p.name}?`)) return
+
+        try {
+            setLoading(true)
+
+            await axiosClient.delete(`/products/${p.id}`)
+
+            // Update frontend list
+            deleteProduct(p.id)
+
+            alert('Product deleted successfully!')
+
+        } catch (error) {
+            console.error('Delete product error:', error)
+            alert('Could not delete product. Please try again.')
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
@@ -32,10 +59,20 @@ export default function AdminProducts() {
             <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-line bg-[#FBF8F2] p-4 shadow-sm sm:flex-row sm:items-center">
                 <label className="relative block min-w-0 flex-1">
                     <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"/>
-                    <input className="field !h-12 !rounded-xl !pl-11 !pr-4 text-sm" placeholder="Search by product, brand or ID" value={q} onChange={e=>setQ(e.target.value)}/>
+                    <input
+                        className="field !h-12 !rounded-xl !pl-11 !pr-4 text-sm"
+                        placeholder="Search by product, brand or ID"
+                        value={q}
+                        onChange={e => setQ(e.target.value)}
+                    />
                 </label>
 
-                <select aria-label="Filter products by status" className="field !h-12 sm:w-44 sm:shrink-0" value={status} onChange={e=>setStatus(e.target.value)}>
+                <select
+                    aria-label="Filter products by status"
+                    className="field !h-12 sm:w-44 sm:shrink-0"
+                    value={status}
+                    onChange={e => setStatus(e.target.value)}
+                >
                     <option>All</option>
                     <option>Active</option>
                     <option>Draft</option>
@@ -51,7 +88,7 @@ export default function AdminProducts() {
                     <span>Actions</span>
                 </div>
 
-                {list.map(p=>
+                {list.map(p =>
                     <div key={p.id} className="grid gap-3 border-t border-line p-4 md:grid-cols-[2fr_1fr_100px_90px_100px] md:items-center md:gap-4 md:px-5">
                         <div className="flex items-center gap-3">
                             <img src={p.imageUrl} className="h-12 w-12 rounded-lg bg-cream p-1 object-contain" alt=""/>
@@ -63,21 +100,32 @@ export default function AdminProducts() {
 
                         <span className="text-xs text-muted">{p.category}</span>
                         <span className="text-sm">${Number(p.price).toFixed(2)}</span>
-                        <span className={`text-xs ${p.stock<10?'font-semibold text-rose':'text-muted'}`}>{p.stock} units</span>
+                        <span className={`text-xs ${p.stock < 10 ? 'font-semibold text-rose' : 'text-muted'}`}>
+                            {p.stock} units
+                        </span>
 
                         <div className="flex gap-2">
-                            <Link title="Edit product" to={`/admin/products/${p.id}/edit`} className="grid h-9 w-9 place-items-center rounded-lg bg-cream hover:bg-blush">
+                            <Link
+                                title="Edit product"
+                                to={`/admin/products/${p.id}/edit`}
+                                className="grid h-9 w-9 place-items-center rounded-lg bg-cream hover:bg-blush"
+                            >
                                 <Pencil size={15}/>
                             </Link>
 
-                            <button title="Delete product" onClick={()=>remove(p)} className="grid h-9 w-9 place-items-center rounded-lg bg-cream text-rose hover:bg-blush">
+                            <button
+                                title="Delete product"
+                                onClick={() => remove(p)}
+                                disabled={loading}
+                                className="grid h-9 w-9 place-items-center rounded-lg bg-cream text-rose hover:bg-blush disabled:opacity-50"
+                            >
                                 <Trash2 size={15}/>
                             </button>
                         </div>
                     </div>
                 )}
 
-                {list.length===0&&
+                {list.length === 0 &&
                     <div className="p-12 text-center text-sm text-muted">
                         <Package className="mx-auto mb-3" size={24}/>
                         No matching products.
@@ -86,7 +134,7 @@ export default function AdminProducts() {
             </div>
 
             <p className="mt-3 text-xs text-muted">
-                Showing {list.length} of {products.length} products · Demo data is saved in this browser only.
+                Showing {list.length} of {products.length} products
             </p>
         </>
     )
