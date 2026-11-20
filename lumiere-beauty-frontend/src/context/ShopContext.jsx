@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { initialProducts } from '../data/products'
-import { productApi } from '../services/api'
+import { productApi, ensureLoggedIn } from '../services/api'
 
 const ShopContext = createContext(null)
 
@@ -37,12 +37,19 @@ export function ShopProvider({ children }) {
 
   useEffect(() => localStorage.setItem('lumiere-cart', JSON.stringify(cart)), [cart])
 
-  const addToCart = (product) => setCart(current => {
-    const found = current.find(item => item.id === product.id)
-    return found
-      ? current.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-      : [...current, { ...product, quantity: 1 }]
-  })
+  // Permission: only logged-in users can add to bag.
+  // Guests are sent to /login and nothing is added.
+  const addToCart = (product) => {
+    if (!ensureLoggedIn()) return false
+
+    setCart(current => {
+      const found = current.find(item => item.id === product.id)
+      return found
+        ? current.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
+        : [...current, { ...product, quantity: 1 }]
+    })
+    return true
+  }
   const updateQuantity = (id, quantity) => setCart(current =>
     quantity <= 0
       ? current.filter(item => item.id !== id)

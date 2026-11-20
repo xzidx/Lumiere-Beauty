@@ -1,32 +1,55 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { orderApi, paymentApi } from '../services/api'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+import { authApi, orderApi, paymentApi } from '../services/api'
 
 export default function Orders() {
+  const location = useLocation()
   const [orders, setOrders] = useState([])
   const [payments, setPayments] = useState({}) // { orderId: payment }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [sessionExpired, setSessionExpired] = useState(false)
 
-  // TEMPORARY: use the same id as Checkout. Replace with the logged-in user later.
+  // No fallback to user 1 anymore. If nobody is logged in, userId is undefined.
   const user = JSON.parse(localStorage.getItem('user') || 'null')
-  const userId = user?.id ?? 1
+  const userId = user?.id
 
   useEffect(() => {
+    if (!userId) return // not logged in, the redirect below handles it
+
     orderApi.getByUser(userId)
       .then(async (list) => {
-        setOrders(list)
+        // Safety net only: never show orders that belong to someone else.
+        // Real protection is on the backend. Orders without userId are kept
+        // so this does not hide everything if the field has another name.
+        const mine = list.filter(
+          (o) => o.userId === undefined || String(o.userId) === String(userId)
+        )
+        setOrders(mine)
+
         // load each order's payment (ignore orders with no payment)
         const entries = await Promise.all(
-          list.map((o) =>
+          mine.map((o) =>
             paymentApi.getByOrder(o.id).then((p) => [o.id, p]).catch(() => [o.id, null])
           )
         )
         setPayments(Object.fromEntries(entries))
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        if (err.status === 401 || err.status === 403) {
+          authApi.logout()
+          setSessionExpired(true)
+        } else {
+          setError(err.message)
+        }
+      })
       .finally(() => setLoading(false))
   }, [userId])
+
+  // Require login
+  if (!userId || sessionExpired) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
 
   return (
     <main className="container-page min-h-[55vh] py-16">

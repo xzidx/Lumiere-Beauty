@@ -14,6 +14,108 @@ const apiClient = axios.create({
   timeout: 10000
 })
 
+// Reads the login token saved after login.
+// Looks for localStorage "token" first, then "user.token".
+function getToken() {
+  const direct = localStorage.getItem('token')
+  if (direct) return direct
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    return user?.token || null
+  } catch {
+    return null
+  }
+}
+
+// Returns the logged-in user saved in localStorage, or null.
+export function getStoredUser() {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    return user?.id ? user : null
+  } catch {
+    return null
+  }
+}
+
+// Permission check: only logged-in / signed-up users may use order & payment APIs.
+function requireLogin() {
+  const user = getStoredUser()
+  if (!user) {
+    const err = new Error('Please log in or sign up first.')
+    err.status = 401
+    throw err
+  }
+  return user
+}
+
+export function isLoggedIn() {
+  return getStoredUser() !== null
+}
+
+// Use on "Add to bag" / "Order" buttons.
+// Not logged in -> goes to the login page and returns false.
+// Logged in     -> returns true so the action can continue.
+//
+//   const navigate = useNavigate()
+//   onClick={() => ensureLoggedIn(navigate) && addToCart(product)}
+export function ensureLoggedIn(navigate) {
+  if (isLoggedIn()) return true
+
+  const from = window.location.pathname
+  const message = 'Please log in or sign up to add to bag or place an order.'
+  if (typeof navigate === 'function') {
+    navigate('/login', { state: { from, message } })
+  } else {
+    window.location.assign('/login')
+  }
+  return false
+}
+
+// The login page posts to /api/users/login with plain axios and does not save
+// the result. Catch that response here and save the user, so the rest of the
+// app knows who is logged in. Auth.jsx does not need to change.
+function isLoginRequest(response) {
+  const url = response?.config?.url || ''
+  return response?.config?.method === 'post' && /\/users\/login\/?$/.test(url)
+}
+
+function saveUserFromLogin(response) {
+  if (isLoginRequest(response) && response.data?.id) {
+    localStorage.setItem('user', JSON.stringify(response.data))
+  }
+  return response
+}
+
+axios.interceptors.response.use(saveUserFromLogin) // plain axios (Auth.jsx)
+
+// Wraps every method of an API object with the login check.
+// If nobody is logged in, the call is rejected before any request is sent.
+function guardAll(api) {
+  return Object.fromEntries(
+    Object.entries(api).map(([name, fn]) => [
+      name,
+      async (...args) => {
+        requireLogin()
+        return fn(...args)
+      }
+    ])
+  )
+}
+
+apiClient.interceptors.response.use((response) => {
+  // Same capture for requests made through apiClient (authApi.login).
+  return typeof saveUserFromLogin === 'function' ? saveUserFromLogin(response) : response
+})
+
+// Sends the token with every request so the backend knows who is asking.
+apiClient.interceptors.request.use((config) => {
+  const token = getToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
 // Turns any Axios error into a readable message.
 // Needs server.error.include-message=always in application.properties.
 function getErrorMessage(error, fallback) {
@@ -21,6 +123,14 @@ function getErrorMessage(error, fallback) {
     return 'Cannot reach the server. Is the backend running on port 8080?'
   }
   return error.response?.data?.message || fallback
+}
+
+// Builds an Error that keeps the HTTP status (401, 403, 404 ...)
+// so pages can react, e.g. redirect to login on 401/403.
+function toApiError(error, fallback) {
+  const err = new Error(getErrorMessage(error, fallback))
+  err.status = error.response?.status
+  return err
 }
 
 export const productApi = {
@@ -94,10 +204,10 @@ export const brandApi = {
 }
 
 export const authApi = {
-  // POST /api/auth/login
+  // POST /api/users/login
   async login(credentials) {
     try {
-      const response = await apiClient.post('/auth/login', credentials)
+      const response = await apiClient.post('/users/login', credentials)
       return response.data
     } catch (error) {
       console.error('Login failed:', error)
@@ -105,27 +215,37 @@ export const authApi = {
     }
   },
 
-  // POST /api/auth/register
+  // POST /api/users
   async register(accountData) {
     try {
-      const response = await apiClient.post('/auth/register', accountData)
+      const response = await apiClient.post('/users', accountData)
       return response.data
     } catch (error) {
       console.error('Registration failed:', error)
       throw error
     }
+  },
+
+  // Clears the saved login (call from a Logout button or on 401/403).
+  logout() {
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
   }
 }
 
-export const orderApi = {
+// Every orderApi method requires a logged-in user.
+export const orderApi = guardAll({
   // POST /api/orders (also creates the payment when paymentMethod is sent)
+  // The backend should take the user from the token, not from orderData.
   async create(orderData) {
     try {
-      const response = await apiClient.post('/orders', orderData)
+      // Always attach the logged-in user's id to the order.
+      const user = requireLogin()
+      const response = await apiClient.post('/orders', { ...orderData, userId: user.id })
       return response.data
     } catch (error) {
       console.error('Unable to create order:', error)
-      throw new Error(getErrorMessage(error, 'Unable to create order'))
+      throw toApiError(error, 'Unable to create order')
     }
   },
 
@@ -136,7 +256,18 @@ export const orderApi = {
       return response.data
     } catch (error) {
       console.error('Unable to load orders:', error)
-      throw new Error(getErrorMessage(error, 'Unable to load orders'))
+      throw toApiError(error, 'Unable to load orders')
+    }
+  },
+
+  // GET /api/orders/me  (backend reads the user from the token)
+  async getMine() {
+    try {
+      const response = await apiClient.get('/orders/me')
+      return response.data
+    } catch (error) {
+      console.error('Unable to load orders:', error)
+      throw toApiError(error, 'Unable to load orders')
     }
   },
 
@@ -147,7 +278,7 @@ export const orderApi = {
       return response.data
     } catch (error) {
       console.error(`Unable to load order ${id}:`, error)
-      throw new Error(getErrorMessage(error, 'Unable to load order'))
+      throw toApiError(error, 'Unable to load order')
     }
   },
 
@@ -158,12 +289,13 @@ export const orderApi = {
       return response.data
     } catch (error) {
       console.error(`Unable to update order ${id}:`, error)
-      throw new Error(getErrorMessage(error, 'Unable to update order'))
+      throw toApiError(error, 'Unable to update order')
     }
   }
-}
+})
 
-export const paymentApi = {
+// Every paymentApi method requires a logged-in user.
+export const paymentApi = guardAll({
   // GET /api/payments
   async getAll() {
     try {
@@ -171,7 +303,7 @@ export const paymentApi = {
       return response.data
     } catch (error) {
       console.error('Unable to load payments:', error)
-      throw new Error(getErrorMessage(error, 'Unable to load payments'))
+      throw toApiError(error, 'Unable to load payments')
     }
   },
 
@@ -182,7 +314,7 @@ export const paymentApi = {
       return response.data
     } catch (error) {
       console.error(`Unable to load payment for order ${orderId}:`, error)
-      throw new Error(getErrorMessage(error, 'Unable to load payment'))
+      throw toApiError(error, 'Unable to load payment')
     }
   },
 
@@ -193,7 +325,7 @@ export const paymentApi = {
       return response.data
     } catch (error) {
       console.error(`Unable to update payment ${id}:`, error)
-      throw new Error(getErrorMessage(error, 'Unable to update payment'))
+      throw toApiError(error, 'Unable to update payment')
     }
   },
 
@@ -203,9 +335,9 @@ export const paymentApi = {
       await apiClient.delete(`/payments/${id}`)
     } catch (error) {
       console.error(`Unable to delete payment ${id}:`, error)
-      throw new Error(getErrorMessage(error, 'Unable to delete payment'))
+      throw toApiError(error, 'Unable to delete payment')
     }
   }
-}
+})
 
 export default apiClient

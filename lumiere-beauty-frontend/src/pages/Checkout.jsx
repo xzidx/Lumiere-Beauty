@@ -1,10 +1,22 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useShop } from '../context/ShopContext'
 import { orderApi, paymentApi } from '../services/api'
 
 export default function Checkout() {
   const { cart, clearCart } = useShop()
+  const location = useLocation()
+
+  // Read the logged-in user fresh on every render (no fallback to user 1)
+  const user = JSON.parse(localStorage.getItem('user') || 'null')
+
+  const [form, setForm] = useState({
+    fullName: user?.fullName ?? '',
+    email: user?.email ?? '',
+    phone: user?.phone ?? '',
+    address: '',
+    city: '',
+  })
   const [result, setResult] = useState(null) // { order, payment }
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -12,22 +24,32 @@ export default function Checkout() {
 
   const total = cart.reduce((s, p) => s + p.price * p.quantity, 0)
 
+  const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+
+  // Must be logged in to order
+  if (!user?.id && !result)
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     try {
-      // TEMPORARY ids: use real ones from your database (Step 2)
-      const user = JSON.parse(localStorage.getItem('user') || 'null')
-      const userId = user?.id ?? 1
+      // TEMPORARY: replace with a real address id once an address API exists
       const addressId = 1
 
-      // 1. Create the order. The backend also creates the payment (PENDING).
+      // 1. Create the order for the logged-in user, including the products.
       const order = await orderApi.create({
-        userId,
+        userId: user.id,
         addressId,
         totalAmount: Number(total.toFixed(2)),
         paymentMethod,
+        items: cart.map((p) => ({
+          productId: p.id,
+          quantity: p.quantity,
+          price: p.price,
+        })),
+        shipping: { ...form },
       })
 
       // 2. Read the payment back to show its status
@@ -78,11 +100,16 @@ export default function Checkout() {
       <form onSubmit={handleSubmit} className="mt-8 grid gap-8 md:grid-cols-[1fr_260px]">
         <div className="space-y-4">
           <h2 className="font-semibold">Contact & delivery</h2>
-          <input required className="field" placeholder="Full name" />
-          <input required type="email" className="field" placeholder="Email address" />
-          <input required className="field" placeholder="Phone number" />
-          <input required className="field" placeholder="Delivery address" />
-          <input required className="field" placeholder="City" />
+          <input required className="field" placeholder="Full name"
+            value={form.fullName} onChange={setField('fullName')} />
+          <input required type="email" className="field" placeholder="Email address"
+            value={form.email} onChange={setField('email')} />
+          <input required className="field" placeholder="Phone number"
+            value={form.phone} onChange={setField('phone')} />
+          <input required className="field" placeholder="Delivery address"
+            value={form.address} onChange={setField('address')} />
+          <input required className="field" placeholder="City"
+            value={form.city} onChange={setField('city')} />
           <label className="block text-sm font-medium">
             Payment method
             <select
