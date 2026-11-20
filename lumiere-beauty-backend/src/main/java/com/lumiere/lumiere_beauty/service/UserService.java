@@ -25,10 +25,12 @@ public class UserService {
 
     // Create User
     public User createUser(User user) {
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        // Default role for normal registration
-        user.setRole("CUSTOMER");
+        if (user.getRole() == null || user.getRole().isBlank()) {
+            user.setRole("CUSTOMER");
+        }
 
         return userRepository.save(user);
     }
@@ -59,9 +61,21 @@ public class UserService {
                 .orElseThrow(() ->
                         new RuntimeException("User not found"));
 
-        user.setFullName(data.get("fullName"));
-        user.setEmail(data.get("email"));
-        user.setPhone(data.get("phone"));
+        if (data.containsKey("fullName")) {
+            user.setFullName(data.get("fullName"));
+        }
+
+        if (data.containsKey("email")) {
+            user.setEmail(data.get("email"));
+        }
+
+        if (data.containsKey("phone")) {
+            user.setPhone(data.get("phone"));
+        }
+
+        if (data.containsKey("role")) {
+            user.setRole(data.get("role"));
+        }
 
         return userRepository.save(user);
     }
