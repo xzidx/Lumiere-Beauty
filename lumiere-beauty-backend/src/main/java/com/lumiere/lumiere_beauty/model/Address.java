@@ -1,7 +1,7 @@
 package com.lumiere.lumiere_beauty.model;
 
 import jakarta.persistence.*;
-import com.lumiere.lumiere_beauty.model.User;
+import com.fasterxml.jackson.annotation.JsonProperty;
 @Entity
 @Table(name = "addresses")
 public class Address {
@@ -11,8 +11,9 @@ public class Address {
     private Long id;
 
     // Foreign Key: user_id
-    @ManyToOne
+   @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonProperty("user")
     private User user;
 
     @Column(name = "recipient_name", nullable = false, length = 100)
@@ -42,4 +43,52 @@ public class Address {
     }
 
     // Getters and Setters
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public String getRecipientName() {
+        return recipientName;
+    }
+
+    public void setRecipientName(String recipientName) {
+        this.recipientName = recipientName;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
 }
