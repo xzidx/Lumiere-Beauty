@@ -1,93 +1,119 @@
-# Brief 15 — Lumière Cosmetics Shop
+# Lumiere Beauty – Backend API
 
-A React + Tailwind CSS front end for the Brief 15 Spring Boot backend API project. It includes a customer storefront and an admin product-management area.
+A RESTful backend API for Lumiere Beauty, a multi-brand cosmetics shop. Developed using Spring Boot and PostgreSQL for Brief 15 – WMAD G3 2026.
 
-## Requirements
-- Node.js 18+
-- npm
+## Technologies
 
-## Run locally
-```bash
-npm install
-cp .env.example .env
-npm run dev
+- Java 21
+- Spring Boot
+- Spring Data JPA
+- PostgreSQL
+- Maven
+- Postman
+
+## Features
+
+- User Management
+- Product Management
+- Brand Management
+- Category Management
+- Address Management
+- Cart Management
+- Order Management
+- Payment Management
+
+## Project Structure
+
+```text
+src/main/java/com/lumiere/lumiere_beauty/
+├── controller/
+├── model/
+├── repository/
+└── service/
+
+src/main/resources/
+└── application.properties
 ```
-Open the local URL printed by Vite.
 
-## Build
+## Getting Started
+
+### 1. Clone the Repository
+
 ```bash
-npm run build
-npm run preview
+git clone https://github.com/xzidx/Lumiere-Beauty.git
+cd lumiere-beauty-backend
 ```
 
-## Pages
-### Customer
-- `/` — home page and featured products
-- `/shop` — product catalogue, search and category filters
-- `/products/:id` — product detail
-- `/cart` — shopping cart
-- `/login` — demo login form
-- `/register` — demo registration form
-- `/orders` — demo order history
+### 2. Configure PostgreSQL
 
-### Admin
-- `/admin` — admin dashboard
-- `/admin/products` — product list, search, filters and product actions
-- `/admin/products/new` — add product form
-- `/admin/products/:id/edit` — edit product form
+Create a PostgreSQL database named:
 
-The admin area is included for interface and API analysis. Authentication and authorization are not implemented; the routes are not protected. Add Spring Security and role-based authorization in the backend before using a real admin account.
+```sql
+CREATE DATABASE lumiere_beauty;
+```
 
-## Backend integration
-The project currently uses local mock data in `src/data/products.js` and browser local storage for the cart. No real backend is connected.
+Update your `application.properties`:
 
-The API service layer is in `src/services/api.js` and uses **Axios with async/await** to communicate with the Java Spring Boot REST API. Set `VITE_API_BASE_URL` in `.env` when the backend is ready. The current storefront still uses sample data and local storage so it can run independently before backend integration. See `docs/AXIOS_ASYNC_AWAIT.md` for teaching examples. Suggested endpoints are documented in `docs/API_REQUIREMENTS.md`.
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/lumiere_beauty
+spring.datasource.username=YOUR_USERNAME
+spring.datasource.password=YOUR_PASSWORD
 
-## Teaching note
-The product list and admin CRUD interface are designed to help Junior Backend Developers identify entities, fields, validation rules, API endpoints, HTTP methods, and expected responses. Sample data is illustrative and can be changed by the project team.
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+```
 
+### 3. Run the Application
 
-Store navigation includes Home, Shop all, About us and Contact. The storefront uses a warm ivory, espresso and champagne-gold palette. The contact page contains demo content; add verified business contact details before publishing.
+```bash
+./mvnw spring-boot:run
+```
 
+The API will be available at:
 
-## Visual identity — Champagne, Rosewood, Sage & Gold
+`http://localhost:8080`
 
-The storefront and admin workspace share one coordinated palette:
-- Pearl/champagne `#F8F4EE` for the main canvas and soft surfaces
-- Rosewood `#805B50` for primary buttons and active navigation
-- Deep wine `#6E3037` for high-emphasis details
-- Botanical sage `#65745D` for secondary accents and reassurance icons
-- Champagne gold `#C6A46A` for subtle borders and premium details
-- Espresso `#302722` for readable headings and body text
+## API Endpoints
 
-The Contact page contains demo placeholders. Add verified business contact details before publishing.
+Base URL: `http://localhost:8080/api`
 
+| Module | Endpoint |
+|---|---|
+| Users | `/users` |
+| Products | `/products` |
+| Brands | `/brands` |
+| Categories | `/categories` |
+| Addresses | `/addresses` |
+| Carts | `/carts` |
+| Orders | `/orders` |
+| Payments | `/payments` |
 
-## Version 8 — Complete storefront and admin visual refresh
+Available HTTP methods depend on each controller:
 
-This version applies the approved Lumière Beauty visual direction throughout the app:
-- Champagne/pearl backgrounds and soft blush surfaces
-- Rosewood primary buttons, active states and key actions
-- Deep wine emphasis for headings and important navigation
-- Sage secondary accents for botanical cues
-- Champagne-gold borders and decorative details
-- Refreshed responsive announcement bar, header, hero, category tiles, reassurance strip and footer
-- Coordinated styling across shop, product, cart, checkout, account, About, Contact and admin screens
+- `GET` – Retrieve data
+- `POST` – Create data
+- `PUT` – Update data
+- `DELETE` – Delete data
 
-The existing local SVG product illustrations remain demo assets. Replace them with licensed product photography when preparing a production storefront.
+## Postman API Testing
 
+Postman is used to test the API endpoints and verify their responses.
 
-## Contact and Admin User Management (demo)
-- Contact email shown in the storefront: LumiereBeauty@gmail.com
-- Customer support hours shown: 24/7
-- Admin workspace includes a User Management page at `/admin/users` with sample account records, role changes, status changes, and removal.
-- User management currently stores demo records in browser localStorage. It does not create real user credentials or enforce access control. Production use requires backend authentication, secure password handling, role-based authorization, and protected admin endpoints.
+The Postman Collection and testing screenshots are provided below.
+
+- **Postman Collection/Testing Evidence:** `https://docs.google.com/document/d/1iyTcMrETUvsf67PJ8H_Qfm4417rI-WZ1JjuN3l8igTc/edit?usp=sharing`
 
 
-## Real product images
-The demo catalogue now uses product packshot image URLs for the sample products (Dior Capture Youth Glow Booster, Rare Beauty Soft Pinch Liquid Blush, Fenty Beauty Pro Filt'r Foundation, Rouge Dior lipstick, The Ordinary Niacinamide serum, CeraVe Hydrating Facial Cleanser, Miss Dior Eau de Parfum, Beauty of Joseon Relief Sun, and Laneige Lip Sleeping Mask). Product cards, product details, admin thumbnails and homepage featured imagery use these catalogue images. Images are loaded from third-party brand/retailer image hosts, so an image host may change or block external access. For production, obtain permission or use image assets supplied/licensed by the brands or distributors and host them on your own server.
+## Project Information
 
+| Detail | Description |
+|---|---|
+| Assignment | Brief 15 – Backend API for a Cosmetics Shop |
+| Class | WMAD G3 2026 |
+| Company | Flash Solution |
+| Client | Kim MinJuu |
+| Project | Lumiere Beauty |
 
-## V19 Sage & Pearl colour correction
+## Author
 
-The interface uses the Sage & Pearl palette consistently. Purple/lavender theme values from the previous version have been replaced with sage, olive, and warm pearl tones.
+WMAD G3 2026
