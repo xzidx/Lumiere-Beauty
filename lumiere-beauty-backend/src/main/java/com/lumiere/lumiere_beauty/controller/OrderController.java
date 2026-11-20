@@ -1,9 +1,13 @@
+
 package com.lumiere.lumiere_beauty.controller;
 
-import com.lumiere.lumiere_beauty.dto.OrderRequest;
-import com.lumiere.lumiere_beauty.dto.OrderResponse;
+import com.lumiere.lumiere_beauty.model.Order;
 import com.lumiere.lumiere_beauty.service.OrderService;
+
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,38 +20,73 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    // GET ALL ORDERS
     @GetMapping
-    public List<OrderResponse> getAll() {
-        return orderService.getAll();
+    public ResponseEntity<List<Order>> getAll() {
+        return ResponseEntity.ok(orderService.getAll());
     }
 
+    // GET ORDER BY ID
     @GetMapping("/{id}")
-    public OrderResponse getById(@PathVariable Long id) {
-        return orderService.getById(id);
+    public ResponseEntity<Order> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getById(id));
     }
 
+    // GET ORDERS BY USER ID
     @GetMapping("/user/{userId}")
-    public List<OrderResponse> getByUser(@PathVariable Long userId) {
-        return orderService.getByUser(userId);
+    public ResponseEntity<List<Order>> getByUser(
+            @PathVariable Long userId) {
+
+        return ResponseEntity.ok(orderService.getByUser(userId));
     }
 
+    // CREATE ORDER
     @PostMapping
-    public OrderResponse create(@RequestBody OrderRequest request) {
-        return orderService.create(request);
+    public ResponseEntity<Order> create(
+            @RequestBody Order request) {
+
+        Order savedOrder = orderService.create(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(savedOrder);
     }
 
+    // UPDATE ORDER
     @PutMapping("/{id}")
-    public OrderResponse update(@PathVariable Long id, @RequestBody OrderRequest request) {
-        return orderService.update(id, request);
+    public ResponseEntity<Order> update(
+            @PathVariable Long id,
+            @RequestBody Order request) {
+
+        return ResponseEntity.ok(
+                orderService.update(id, request)
+        );
     }
 
+    // UPDATE ORDER STATUS
     @PutMapping("/{id}/status")
-    public OrderResponse updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return orderService.updateStatus(id, body.get("status"));
+    public ResponseEntity<Order> updateStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+
+        String status = body.get("status");
+
+        if (status == null || status.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return ResponseEntity.ok(
+                orderService.updateStatus(id, status)
+        );
     }
 
+    // DELETE ORDER
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id) {
+
         orderService.delete(id);
+
+        return ResponseEntity.noContent().build();
     }
 }

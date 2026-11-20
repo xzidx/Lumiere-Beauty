@@ -1,12 +1,11 @@
 package com.lumiere.lumiere_beauty.service;
 
-import com.lumiere.lumiere_beauty.dto.PaymentRequest;
-import com.lumiere.lumiere_beauty.dto.PaymentResponse;
 import com.lumiere.lumiere_beauty.model.Order;
 import com.lumiere.lumiere_beauty.model.Payment;
 import com.lumiere.lumiere_beauty.repository.OrderRepository;
 import com.lumiere.lumiere_beauty.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,72 +23,75 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
 
-    public List<PaymentResponse> getAll() {
-        return paymentRepository.findAllResponses();
+    public List<Payment> getAll() {
+        return paymentRepository.findAll(Sort.by("id"));
     }
 
-    public PaymentResponse getById(Long id) {
-        return paymentRepository.findResponseById(id)
+    public Payment getById(Long id) {
+        return paymentRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
     }
 
-    public PaymentResponse getByOrder(Long orderId) {
-        return paymentRepository.findResponseByOrderId(orderId)
+    public Payment getByOrder(Long orderId) {
+        return paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found for this order"));
     }
 
     @Transactional
-    public PaymentResponse create(PaymentRequest request) {
-        if (request.orderId() == null) {
+    public Payment create(Payment request) {
+        if (request.getOrderId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "orderId is required");
         }
-        if (request.paymentMethod() == null || request.paymentMethod().isBlank()) {
+        if (request.getPaymentMethod() == null || request.getPaymentMethod().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "paymentMethod is required");
         }
 
-        Order order = orderRepository.findById(request.orderId())
+        Order order = orderRepository.findById(request.getOrderId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
-        if (paymentRepository.existsByOrderId(request.orderId())) {
+        if (paymentRepository.existsByOrderId(request.getOrderId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This order already has a payment");
         }
 
         // If no amount is sent, use the order total
-        BigDecimal amount = request.amount() != null ? request.amount() : order.getTotalAmount();
-        String status = request.paymentStatus() != null ? request.paymentStatus() : "PENDING";
-        String reference = request.transactionReference() != null
-                ? request.transactionReference()
+        BigDecimal amount = request.getAmount() != null ? request.getAmount() : order.getTotalAmount();
+        String status = request.getPaymentStatus() != null ? request.getPaymentStatus() : "PENDING";
+        String reference = request.getTransactionReference() != null
+                ? request.getTransactionReference()
                 : "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        paymentRepository.save(new Payment(
+        Payment payment = new Payment(
                 order,
-                request.paymentMethod(),
+                request.getPaymentMethod(),
                 status,
                 amount,
                 reference,
-                LocalDateTime.now()));
+                LocalDateTime.now());
+        // Read-only column, so fill it in memory for the response
+        payment.setOrderId(order.getId());
 
-        return getByOrder(request.orderId());
+        return paymentRepository.save(payment);
     }
 
     @Transactional
-    public PaymentResponse updateStatus(Long id, String status) {
+    public Payment updateStatus(Long id, String status) {
         if (status == null || status.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "status is required");
         }
 
-        PaymentResponse current = getById(id);
-        paymentRepository.updateStatus(id, status);
+        Payment payment = getById(id);
+        payment.setPaymentStatus(status);
+        paymentRepository.save(payment);
 
         // When a payment is PAID, mark its order as PAID too
         if ("PAID".equalsIgnoreCase(status)) {
-            Order order = orderRepository.findById(current.orderId())
+            Order order = orderRepository.findById(payment.getOrderId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
             order.setStatus("PAID");
             orderRepository.save(order);
         }
 
-        return getById(id);
+        return payment;
     }
 
     public void delete(Long id) {

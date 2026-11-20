@@ -1,50 +1,59 @@
+
 import axios from 'axios'
 
-// Base URL of the Java Spring Boot REST API.
-// Change VITE_API_BASE_URL in the .env file when the backend is ready.
+// ==========================================
+// 1. API CONFIGURATION
+// ==========================================
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
-// One Axios instance so all API requests share the same configuration.
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
   },
-  timeout: 10000
+  timeout: 15000,
 })
 
-// Reads the login token saved after login.
-// Looks for localStorage "token" first, then "user.token".
-function getToken() {
-  const direct = localStorage.getItem('token')
-  if (direct) return direct
-  try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null')
-    return user?.token || null
-  } catch {
-    return null
-  }
-}
+// ==========================================
+// 2. USER AUTHENTICATION
+// ==========================================
 
-// Returns the logged-in user saved in localStorage, or null.
 export function getStoredUser() {
   try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null')
+    const user = JSON.parse(
+      localStorage.getItem('user') || 'null'
+    )
+
     return user?.id ? user : null
   } catch {
     return null
   }
 }
 
-// Permission check: only logged-in / signed-up users may use order & payment APIs.
+function getToken() {
+  const direct = localStorage.getItem('token')
+
+  if (direct) return direct
+
+  try {
+    const user = getStoredUser()
+    return user?.token || null
+  } catch {
+    return null
+  }
+}
+
 function requireLogin() {
   const user = getStoredUser()
+
   if (!user) {
-    const err = new Error('Please log in or sign up first.')
-    err.status = 401
-    throw err
+    const error = new Error('Please log in first.')
+    error.status = 401
+    throw error
   }
+
   return user
 }
 
@@ -52,44 +61,141 @@ export function isLoggedIn() {
   return getStoredUser() !== null
 }
 
-// Use on "Add to bag" / "Order" buttons.
-// Not logged in -> goes to the login page and returns false.
-// Logged in     -> returns true so the action can continue.
-//
-//   const navigate = useNavigate()
-//   onClick={() => ensureLoggedIn(navigate) && addToCart(product)}
 export function ensureLoggedIn(navigate) {
   if (isLoggedIn()) return true
 
   const from = window.location.pathname
-  const message = 'Please log in or sign up to add to bag or place an order.'
+
+  const message =
+    'Please log in or sign up to place an order.'
+
   if (typeof navigate === 'function') {
-    navigate('/login', { state: { from, message } })
+    navigate('/login', {
+      state: { from, message },
+    })
   } else {
     window.location.assign('/login')
   }
+
   return false
 }
 
-// The login page posts to /api/users/login with plain axios and does not save
-// the result. Catch that response here and save the user, so the rest of the
-// app knows who is logged in. Auth.jsx does not need to change.
+// ==========================================
+// 3. LOGIN RESPONSE HANDLING
+// ==========================================
+
 function isLoginRequest(response) {
   const url = response?.config?.url || ''
-  return response?.config?.method === 'post' && /\/users\/login\/?$/.test(url)
+
+  return (
+    response?.config?.method === 'post' &&
+    /\/users\/login\/?$/.test(url)
+  )
 }
 
 function saveUserFromLogin(response) {
-  if (isLoginRequest(response) && response.data?.id) {
-    localStorage.setItem('user', JSON.stringify(response.data))
+  if (isLoginRequest(response)) {
+    const data = response.data
+
+    const user = data?.user || data
+
+    if (user?.id) {
+      localStorage.setItem('user', JSON.stringify(user))
+    }
+
+    if (data?.token) {
+      localStorage.setItem('token', data.token)
+    } else if (user?.token) {
+      localStorage.setItem('token', user.token)
+    }
   }
+
   return response
 }
 
-axios.interceptors.response.use(saveUserFromLogin) // plain axios (Auth.jsx)
+// For login requests using normal axios
+axios.interceptors.response.use(saveUserFromLogin)
 
-// Wraps every method of an API object with the login check.
-// If nobody is logged in, the call is rejected before any request is sent.
+// For requests using apiClient
+apiClient.interceptors.response.use(saveUserFromLogin)
+
+// ==========================================
+// 4. REQUEST INTERCEPTOR
+// ==========================================
+
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = getToken()
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// ==========================================
+// 5. ERROR HANDLING
+// ==========================================
+
+function getErrorMessage(error, fallback = 'Request failed') {
+  if (error.code === 'ERR_NETWORK') {
+    return 'Cannot connect to backend. Check whether Spring Boot is running on port 8080.'
+  }
+
+  if (error.code === 'ECONNABORTED') {
+    return 'Request timeout. Please try again.'
+  }
+
+  const data = error.response?.data
+
+  console.error(
+    'SERVER ERROR:',
+    error.response?.status,
+    data
+  )
+
+  if (typeof data === 'string') {
+    return data
+  }
+
+  if (data?.message) {
+    return data.message
+  }
+
+  if (data?.error) {
+    return data.error
+  }
+
+  if (data?.errors) {
+    return JSON.stringify(data.errors)
+  }
+
+  if (data?.detail) {
+    return data.detail
+  }
+
+  return fallback
+}
+
+function toApiError(error, fallback) {
+  const err = new Error(
+    getErrorMessage(error, fallback)
+  )
+
+  err.status = error.response?.status
+  err.data = error.response?.data
+  err.response = error.response
+
+  return err
+}
+
+// ==========================================
+// 6. LOGIN GUARD
+// ==========================================
+
 function guardAll(api) {
   return Object.fromEntries(
     Object.entries(api).map(([name, fn]) => [
@@ -97,41 +203,14 @@ function guardAll(api) {
       async (...args) => {
         requireLogin()
         return fn(...args)
-      }
+      },
     ])
   )
 }
 
-apiClient.interceptors.response.use((response) => {
-  // Same capture for requests made through apiClient (authApi.login).
-  return typeof saveUserFromLogin === 'function' ? saveUserFromLogin(response) : response
-})
-
-// Sends the token with every request so the backend knows who is asking.
-apiClient.interceptors.request.use((config) => {
-  const token = getToken()
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-// Turns any Axios error into a readable message.
-// Needs server.error.include-message=always in application.properties.
-function getErrorMessage(error, fallback) {
-  if (error.code === 'ERR_NETWORK') {
-    return 'Cannot reach the server. Is the backend running on port 8080?'
-  }
-  return error.response?.data?.message || fallback
-}
-
-// Builds an Error that keeps the HTTP status (401, 403, 404 ...)
-// so pages can react, e.g. redirect to login on 401/403.
-function toApiError(error, fallback) {
-  const err = new Error(getErrorMessage(error, fallback))
-  err.status = error.response?.status
-  return err
-}
+// ==========================================
+// 7. PRODUCT API
+// ==========================================
 
 export const productApi = {
   // GET /api/products
@@ -140,55 +219,68 @@ export const productApi = {
       const response = await apiClient.get('/products')
       return response.data
     } catch (error) {
-      console.error('Unable to load products:', error)
-      throw error
+      throw toApiError(error, 'Unable to load products')
     }
   },
 
   // GET /api/products/{id}
   async getById(id) {
     try {
-      const response = await apiClient.get(`/products/${id}`)
+      const response = await apiClient.get(
+        `/products/${id}`
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to load product ${id}:`, error)
-      throw error
+      throw toApiError(error, 'Unable to load product')
     }
   },
 
   // POST /api/products
   async create(productData) {
     try {
-      const response = await apiClient.post('/products', productData)
+      const response = await apiClient.post(
+        '/products',
+        productData
+      )
+
       return response.data
     } catch (error) {
-      console.error('Unable to create product:', error)
-      throw error
+      throw toApiError(error, 'Unable to create product')
     }
   },
 
   // PUT /api/products/{id}
   async update(id, productData) {
     try {
-      const response = await apiClient.put(`/products/${id}`, productData)
+      const response = await apiClient.put(
+        `/products/${id}`,
+        productData
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to update product ${id}:`, error)
-      throw error
+      throw toApiError(error, 'Unable to update product')
     }
   },
 
   // DELETE /api/products/{id}
   async remove(id) {
     try {
-      const response = await apiClient.delete(`/products/${id}`)
+      const response = await apiClient.delete(
+        `/products/${id}`
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to delete product ${id}:`, error)
-      throw error
+      throw toApiError(error, 'Unable to delete product')
     }
-  }
+  },
 }
+
+// ==========================================
+// 8. BRAND API
+// ==========================================
 
 export const brandApi = {
   // GET /api/brands
@@ -197,54 +289,78 @@ export const brandApi = {
       const response = await apiClient.get('/brands')
       return response.data
     } catch (error) {
-      console.error('Unable to load brands:', error)
-      throw error
+      throw toApiError(error, 'Unable to load brands')
     }
-  }
+  },
 }
+
+// ==========================================
+// 9. AUTH API
+// ==========================================
 
 export const authApi = {
   // POST /api/users/login
   async login(credentials) {
     try {
-      const response = await apiClient.post('/users/login', credentials)
+      const response = await apiClient.post(
+        '/users/login',
+        credentials
+      )
+
       return response.data
     } catch (error) {
-      console.error('Login failed:', error)
-      throw error
+      throw toApiError(error, 'Login failed')
     }
   },
 
   // POST /api/users
   async register(accountData) {
     try {
-      const response = await apiClient.post('/users', accountData)
+      const response = await apiClient.post(
+        '/users',
+        accountData
+      )
+
       return response.data
     } catch (error) {
-      console.error('Registration failed:', error)
-      throw error
+      throw toApiError(error, 'Registration failed')
     }
   },
 
-  // Clears the saved login (call from a Logout button or on 401/403).
+  // Logout
   logout() {
     localStorage.removeItem('user')
     localStorage.removeItem('token')
-  }
+  },
 }
 
-// Every orderApi method requires a logged-in user.
+// ==========================================
+// 10. ORDER API
+// ==========================================
+
 export const orderApi = guardAll({
-  // POST /api/orders (also creates the payment when paymentMethod is sent)
-  // The backend should take the user from the token, not from orderData.
+  // POST /api/orders
   async create(orderData) {
     try {
-      // Always attach the logged-in user's id to the order.
-      const user = requireLogin()
-      const response = await apiClient.post('/orders', { ...orderData, userId: user.id })
+      const user = getStoredUser()
+
+      // Attach logged-in user ID
+      const payload = {
+        ...orderData,
+        userId: user.id,
+      }
+
+      console.log('Sending Order:', payload)
+
+      const response = await apiClient.post(
+        '/orders',
+        payload
+      )
+
+      console.log('Order Response:', response.data)
+
       return response.data
     } catch (error) {
-      console.error('Unable to create order:', error)
       throw toApiError(error, 'Unable to create order')
     }
   },
@@ -252,32 +368,35 @@ export const orderApi = guardAll({
   // GET /api/orders/user/{userId}
   async getByUser(userId) {
     try {
-      const response = await apiClient.get(`/orders/user/${userId}`)
+      const response = await apiClient.get(
+        `/orders/user/${userId}`
+      )
+
       return response.data
     } catch (error) {
-      console.error('Unable to load orders:', error)
       throw toApiError(error, 'Unable to load orders')
     }
   },
 
-  // GET /api/orders/me  (backend reads the user from the token)
+  // GET /api/orders/me
   async getMine() {
     try {
       const response = await apiClient.get('/orders/me')
       return response.data
     } catch (error) {
-      console.error('Unable to load orders:', error)
-      throw toApiError(error, 'Unable to load orders')
+      throw toApiError(error, 'Unable to load your orders')
     }
   },
 
   // GET /api/orders/{id}
   async getById(id) {
     try {
-      const response = await apiClient.get(`/orders/${id}`)
+      const response = await apiClient.get(
+        `/orders/${id}`
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to load order ${id}:`, error)
       throw toApiError(error, 'Unable to load order')
     }
   },
@@ -285,24 +404,44 @@ export const orderApi = guardAll({
   // PUT /api/orders/{id}/status
   async updateStatus(id, status) {
     try {
-      const response = await apiClient.put(`/orders/${id}/status`, { status })
+      const response = await apiClient.put(
+        `/orders/${id}/status`,
+        { status }
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to update order ${id}:`, error)
       throw toApiError(error, 'Unable to update order')
     }
-  }
+  },
 })
 
-// Every paymentApi method requires a logged-in user.
+// ==========================================
+// 11. PAYMENT API
+// ==========================================
+
 export const paymentApi = guardAll({
+  // POST /api/payments
+  // Use only if your PaymentController has this endpoint.
+  async create(paymentData) {
+    try {
+      const response = await apiClient.post(
+        '/payments',
+        paymentData
+      )
+
+      return response.data
+    } catch (error) {
+      throw toApiError(error, 'Unable to create payment')
+    }
+  },
+
   // GET /api/payments
   async getAll() {
     try {
       const response = await apiClient.get('/payments')
       return response.data
     } catch (error) {
-      console.error('Unable to load payments:', error)
       throw toApiError(error, 'Unable to load payments')
     }
   },
@@ -310,10 +449,12 @@ export const paymentApi = guardAll({
   // GET /api/payments/order/{orderId}
   async getByOrder(orderId) {
     try {
-      const response = await apiClient.get(`/payments/order/${orderId}`)
+      const response = await apiClient.get(
+        `/payments/order/${orderId}`
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to load payment for order ${orderId}:`, error)
       throw toApiError(error, 'Unable to load payment')
     }
   },
@@ -321,10 +462,13 @@ export const paymentApi = guardAll({
   // PUT /api/payments/{id}/status
   async updateStatus(id, status) {
     try {
-      const response = await apiClient.put(`/payments/${id}/status`, { status })
+      const response = await apiClient.put(
+        `/payments/${id}/status`,
+        { status }
+      )
+
       return response.data
     } catch (error) {
-      console.error(`Unable to update payment ${id}:`, error)
       throw toApiError(error, 'Unable to update payment')
     }
   },
@@ -332,12 +476,51 @@ export const paymentApi = guardAll({
   // DELETE /api/payments/{id}
   async remove(id) {
     try {
-      await apiClient.delete(`/payments/${id}`)
+      const response = await apiClient.delete(
+        `/payments/${id}`
+      )
+
+      return response.data
     } catch (error) {
-      console.error(`Unable to delete payment ${id}:`, error)
       throw toApiError(error, 'Unable to delete payment')
     }
-  }
+  },
 })
+
+// ==========================================
+// 12. ORDER ITEM API
+// ==========================================
+
+export const orderItemApi = guardAll({
+  // GET /api/order-items/order/{orderId}
+  async getByOrder(orderId) {
+    try {
+      const response = await apiClient.get(
+        `/order-items/order/${orderId}`
+      )
+
+      return response.data
+    } catch (error) {
+      throw toApiError(error, 'Unable to load order items')
+    }
+  },
+
+  // GET /api/order-items/{id}
+  async getById(id) {
+    try {
+      const response = await apiClient.get(
+        `/order-items/${id}`
+      )
+
+      return response.data
+    } catch (error) {
+      throw toApiError(error, 'Unable to load order item')
+    }
+  },
+})
+
+// ==========================================
+// 13. EXPORT API CLIENT
+// ==========================================
 
 export default apiClient

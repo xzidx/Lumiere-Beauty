@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
-import { authApi, orderApi, paymentApi } from '../services/api'
+import { useShop } from '../context/ShopContext'
+import { authApi, orderApi, orderItemApi, paymentApi } from '../services/api'
 
 export default function Orders() {
   const location = useLocation()
+  const { products } = useShop()
   const [orders, setOrders] = useState([])
   const [payments, setPayments] = useState({}) // { orderId: payment }
+  const [items, setItems] = useState({}) // { orderId: [orderItem, ...] }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -13,6 +16,10 @@ export default function Orders() {
   // No fallback to user 1 anymore. If nobody is logged in, userId is undefined.
   const user = JSON.parse(localStorage.getItem('user') || 'null')
   const userId = user?.id
+
+  // The backend sends only productId, so look the name up in the product list
+  const productName = (productId) =>
+    products.find((p) => String(p.id) === String(productId))?.name ?? `Product #${productId}`
 
   useEffect(() => {
     if (!userId) return // not logged in, the redirect below handles it
@@ -27,13 +34,21 @@ export default function Orders() {
         )
         setOrders(mine)
 
-        // load each order's payment (ignore orders with no payment)
-        const entries = await Promise.all(
-          mine.map((o) =>
-            paymentApi.getByOrder(o.id).then((p) => [o.id, p]).catch(() => [o.id, null])
-          )
-        )
-        setPayments(Object.fromEntries(entries))
+        // load each order's payment and products (ignore orders with none)
+        const [paymentEntries, itemEntries] = await Promise.all([
+          Promise.all(
+            mine.map((o) =>
+              paymentApi.getByOrder(o.id).then((p) => [o.id, p]).catch(() => [o.id, null])
+            )
+          ),
+          Promise.all(
+            mine.map((o) =>
+              orderItemApi.getByOrder(o.id).then((i) => [o.id, i]).catch(() => [o.id, []])
+            )
+          ),
+        ])
+        setPayments(Object.fromEntries(paymentEntries))
+        setItems(Object.fromEntries(itemEntries))
       })
       .catch((err) => {
         if (err.status === 401 || err.status === 403) {
@@ -69,23 +84,37 @@ export default function Orders() {
       <div className="mt-8 space-y-4">
         {orders.map((o) => {
           const pay = payments[o.id]
+          const orderItems = items[o.id] || []
           return (
-            <div key={o.id} className="flex justify-between gap-4 rounded-2xl border border-line p-5">
-              <div>
-                <p className="font-medium">{o.orderNumber}</p>
-                <p className="mt-1 text-xs text-muted">
-                  {o.createdAt ? new Date(o.createdAt).toLocaleString() : ''}
-                </p>
-                {pay && (
-                  <p className="mt-2 text-xs text-muted">
-                    Payment: {pay.paymentMethod} · {pay.paymentStatus}
+            <div key={o.id} className="rounded-2xl border border-line p-5">
+              <div className="flex justify-between gap-4">
+                <div>
+                  <p className="font-medium">{o.orderNumber}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    {o.createdAt ? new Date(o.createdAt).toLocaleString() : ''}
                   </p>
-                )}
+                  {pay && (
+                    <p className="mt-2 text-xs text-muted">
+                      Payment: {pay.paymentMethod} · {pay.paymentStatus}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p>${Number(o.totalAmount).toFixed(2)}</p>
+                  <p className="mt-1 text-xs text-muted">{o.status}</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p>${Number(o.totalAmount).toFixed(2)}</p>
-                <p className="mt-1 text-xs text-muted">{o.status}</p>
-              </div>
+
+              {orderItems.length > 0 && (
+                <div className="mt-4 space-y-2 border-t border-line pt-4">
+                  {orderItems.map((i) => (
+                    <div key={i.id} className="flex justify-between gap-3 text-xs">
+                      <span>{productName(i.productId)} × {i.quantity}</span>
+                      <span>${Number(i.subtotal).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}

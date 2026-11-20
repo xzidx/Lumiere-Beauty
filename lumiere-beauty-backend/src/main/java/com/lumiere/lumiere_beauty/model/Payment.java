@@ -1,11 +1,16 @@
 package com.lumiere.lumiere_beauty.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "payments")
+@Getter
+@Setter
 public class Payment {
 
     @Id
@@ -13,9 +18,14 @@ public class Payment {
     private Long id;
 
     // Foreign Key: order_id
+    @JsonIgnore
     @OneToOne
     @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
+
+    // Read-only copy of the foreign key, so the JSON still has orderId
+    @Column(name = "order_id", insertable = false, updatable = false)
+    private Long orderId;
 
     @Column(name = "payment_method", nullable = false, length = 30)
     private String paymentMethod;
@@ -47,6 +57,4 @@ public class Payment {
         this.transactionReference = transactionReference;
         this.createdAt = createdAt;
     }
-
-    // Getters and Setters
 }
