@@ -1,3 +1,4 @@
+
 package com.lumiere.lumiere_beauty.controller;
 
 import com.lumiere.lumiere_beauty.model.User;
@@ -8,7 +9,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-@CrossOrigin(origins = "http://localhost:5173")@RestController
+
+@CrossOrigin(origins = "http://localhost:5173")
+@RestController
 @RequestMapping("/api/users")
 public class UserController {
 
@@ -29,9 +32,11 @@ public class UserController {
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
+
     // Login User
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody Map<String, String> loginData) {
+    public Map<String, Object> login(
+            @RequestBody Map<String, String> loginData) {
 
         User user = userService.login(
                 loginData.get("email"),
@@ -39,11 +44,34 @@ public class UserController {
         );
 
         Map<String, Object> response = new HashMap<>();
+
         response.put("id", user.getId());
         response.put("fullName", user.getFullName());
         response.put("email", user.getEmail());
+        response.put("phone", user.getPhone());
         response.put("role", user.getRole());
+        response.put("createdAt", user.getCreatedAt());
 
         return response;
     }
- }
+
+    // Update User Profile
+    @PutMapping("/{id}")
+    public Map<String, Object> updateUser(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> data) {
+
+        User user = userService.updateUser(id, data);
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("id", user.getId());
+        response.put("fullName", user.getFullName());
+        response.put("email", user.getEmail());
+        response.put("phone", user.getPhone());
+        response.put("role", user.getRole());
+        response.put("createdAt", user.getCreatedAt());
+
+        return response;
+    }
+}

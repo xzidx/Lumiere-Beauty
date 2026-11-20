@@ -10,6 +10,7 @@ export default function Auth({ register = false }) {
 
     const [fullName, setFullName] = useState('')
     const [email, setEmail] = useState('')
+    const [phone, setPhone] = useState('')
     const [password, setPassword] = useState('')
 
     const handleSubmit = async (e) => {
@@ -21,7 +22,12 @@ export default function Auth({ register = false }) {
             if (register) {
                 response = await axios.post(
                     'http://localhost:8080/api/users',
-                    { fullName, email, password }
+                    {
+                        fullName,
+                        email,
+                        phone,
+                        password
+                    }
                 )
 
                 alert('Account created successfully! Please log in.')
@@ -33,23 +39,20 @@ export default function Auth({ register = false }) {
                     { email, password }
                 )
 
-                // Get user information from backend
                 const user = response.data
-                
 
-                // Check user role
-                if (user.role?.toUpperCase() !== 'ADMIN' &&
-                    user.role?.toUpperCase() !== 'CUSTOMER') {
+                if (
+                    user.role?.toUpperCase() !== 'ADMIN' &&
+                    user.role?.toUpperCase() !== 'CUSTOMER'
+                ) {
                     alert('You do not have permission to access this account.')
                     return
                 }
 
-                // Save user information
                 localStorage.setItem('user', JSON.stringify(user))
 
                 alert(`Welcome back, ${user.fullName}!`)
 
-                // Redirect based on user role
                 if (user.role.toUpperCase() === 'ADMIN') {
                     navigate('/admin')
                 } else {
@@ -91,14 +94,25 @@ export default function Auth({ register = false }) {
                 </p>
 
                 {register && (
-                    <input
-                        required
-                        type="text"
-                        className="field mt-5"
-                        placeholder="Full name"
-                        value={fullName}
-                        onChange={e => setFullName(e.target.value)}
-                    />
+                    <>
+                        <input
+                            required
+                            type="text"
+                            className="field mt-5"
+                            placeholder="Full name"
+                            value={fullName}
+                            onChange={e => setFullName(e.target.value)}
+                        />
+
+                        <input
+                            required
+                            type="tel"
+                            className="field mt-3"
+                            placeholder="Phone number"
+                            value={phone}
+                            onChange={e => setPhone(e.target.value)}
+                        />
+                    </>
                 )}
 
                 <input

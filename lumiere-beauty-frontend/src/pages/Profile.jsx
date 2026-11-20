@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 import {
   User,
   Mail,
@@ -19,12 +21,12 @@ import {
 export default function Profile() {
   const navigate = useNavigate()
 
-  // Get logged-in user
   const [user, setUser] = useState(
     JSON.parse(localStorage.getItem('user') || 'null')
   )
 
   const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
@@ -32,14 +34,30 @@ export default function Profile() {
     phone: user?.phone || ''
   })
 
-  // Redirect if not logged in
+  // Redirect if user is not logged in
   useEffect(() => {
-    if (!user) navigate('/login')
+    if (!user) {
+      navigate('/login')
+    }
   }, [user, navigate])
+
+  // Keep form data synchronized with user information
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        fullName: user.fullName || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      })
+
+      console.log('PROFILE USER:', user)
+      console.log('PROFILE PHONE:', user.phone)
+    }
+  }, [user])
 
   if (!user) return null
 
-  // Update input
+  // Update input values
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -47,15 +65,45 @@ export default function Profile() {
     })
   }
 
-  // Save changes
-  const handleSave = (e) => {
+  // Save profile changes to backend
+  const handleSave = async (e) => {
     e.preventDefault()
 
-    const updatedUser = { ...user, ...formData }
+    try {
+      setLoading(true)
 
-    setUser(updatedUser)
-    localStorage.setItem('user', JSON.stringify(updatedUser))
-    setIsEditing(false)
+      const response = await axios.put(
+        `http://localhost:8080/api/users/${user.id}`,
+        formData
+      )
+
+      const updatedUser = {
+        ...user,
+        ...response.data
+      }
+
+      setUser(updatedUser)
+
+      localStorage.setItem(
+        'user',
+        JSON.stringify(updatedUser)
+      )
+
+      setIsEditing(false)
+
+      alert('Profile updated successfully!')
+
+    } catch (error) {
+      console.error(error)
+
+      alert(
+        error.response?.data?.message ||
+        'Could not update profile. Please try again.'
+      )
+
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Cancel editing
@@ -65,6 +113,7 @@ export default function Profile() {
       email: user.email || '',
       phone: user.phone || ''
     })
+
     setIsEditing(false)
   }
 
@@ -82,9 +131,11 @@ export default function Profile() {
         {/* Page Heading */}
         <div className="mb-10">
           <p className="eyebrow text-sage">My Account</p>
+
           <h1 className="mt-3 font-display text-4xl text-wine md:text-5xl">
             My Profile
           </h1>
+
           <p className="mt-3 text-sm text-muted">
             Manage your personal information and account settings.
           </p>
@@ -121,7 +172,11 @@ export default function Profile() {
 
                 <div className="flex items-center gap-3 text-muted">
                   <CalendarDays size={18} className="text-sage" />
-                  <span>Member since {user.createdAt || 'Recently'}</span>
+                  <span>
+                    Member since {user.createdAt
+                      ? String(user.createdAt).split('T')[0]
+                      : 'Recently'}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-3 text-muted">
@@ -138,12 +193,14 @@ export default function Profile() {
 
               <button
                 type="button"
+                onClick={() => navigate('/orders')}
                 className="flex w-full items-center justify-between border-b border-line px-5 py-4 text-sm font-medium text-wine transition hover:bg-[#FBF8F2]"
               >
                 <span className="flex items-center gap-3">
                   <Package size={18} className="text-sage" />
                   My Orders
                 </span>
+
                 <ChevronRight size={17} />
               </button>
 
@@ -155,6 +212,7 @@ export default function Profile() {
                   <MapPin size={18} className="text-sage" />
                   My Addresses
                 </span>
+
                 <ChevronRight size={17} />
               </button>
 
@@ -167,6 +225,7 @@ export default function Profile() {
                   <LogOut size={18} />
                   Logout
                 </span>
+
                 <ChevronRight size={17} />
               </button>
 
@@ -185,6 +244,7 @@ export default function Profile() {
                   <h2 className="font-display text-2xl text-wine">
                     Personal Information
                   </h2>
+
                   <p className="mt-2 text-sm text-muted">
                     Update your personal details.
                   </p>
@@ -294,15 +354,17 @@ export default function Profile() {
 
                     <button
                       type="submit"
-                      className="btn-primary flex items-center gap-2 rounded-lg"
+                      disabled={loading}
+                      className="btn-primary flex items-center gap-2 rounded-lg disabled:opacity-50"
                     >
                       <Save size={17} />
-                      Save Changes
+                      {loading ? 'Saving...' : 'Save Changes'}
                     </button>
 
                     <button
                       type="button"
                       onClick={handleCancel}
+                      disabled={loading}
                       className="btn-outline flex items-center gap-2 rounded-lg"
                     >
                       <X size={17} />
@@ -328,6 +390,7 @@ export default function Profile() {
                   <h3 className="font-semibold text-wine">
                     Password & Security
                   </h3>
+
                   <p className="mt-1 text-xs text-muted">
                     Keep your account secure.
                   </p>
