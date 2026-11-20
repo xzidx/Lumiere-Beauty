@@ -1,9 +1,7 @@
-
 package com.lumiere.lumiere_beauty.model;
 
 import jakarta.persistence.*;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 @Entity
 @Table(name = "addresses")
 public class Address {
@@ -12,9 +10,10 @@ public class Address {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    // Foreign Key: user_id
+   @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore
+    @JsonProperty("user")
     private User user;
 
     @Column(name = "recipient_name", nullable = false, length = 100)
@@ -29,9 +28,11 @@ public class Address {
     @Column(nullable = false, length = 100)
     private String city;
 
+    // Default Constructor
     public Address() {
     }
 
+    // Parameterized Constructor
     public Address(User user, String recipientName, String phone,
                    String address, String city) {
         this.user = user;
@@ -40,6 +41,8 @@ public class Address {
         this.address = address;
         this.city = city;
     }
+
+    // Getters and Setters
 
     public Long getId() {
         return id;

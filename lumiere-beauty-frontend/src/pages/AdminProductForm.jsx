@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Save } from 'lucide-react'
@@ -19,18 +18,30 @@ const empty = {
 export default function AdminProductForm() {
     const { id } = useParams()
     const editing = Boolean(id)
-    const navigate = useNavigate()
 
     const { products, brands, categories, saveProduct } = useShop()
+    const navigate = useNavigate()
 
     const [form, setForm] = useState(empty)
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
 
-    // Load existing product or set default category
+    // Set default category
     useEffect(() => {
-        if (editing) {
-            const found = products.find(p => String(p.id) === id)
+        if (!editing && categories.length > 0) {
+            const skincare = categories.find(c => c.name === 'Skincare')
+
+            setForm(f => ({
+                ...f,
+                category: String(skincare?.id ?? categories[0].id)
+            }))
+        }
+    }, [categories, editing])
+
+    // Load product when editing
+    useEffect(() => {
+        if (editing && brands.length > 0 && categories.length > 0) {
+            const found = products.find(p => p.id === id)
 
             if (found) {
                 const brand = brands.find(b => b.name === found.brand)
@@ -41,25 +52,22 @@ export default function AdminProductForm() {
                     brand: brand ? String(brand.id) : '',
                     category: category ? String(category.id) : '',
                     price: found.price ?? '',
-                    stock: found.stock ?? found.stockQuantity ?? '',
+                    stock: found.stock ?? '',
                     status: found.status || 'Active',
                     imageUrl: found.imageUrl || '',
                     description: found.description || ''
                 })
             }
-        } else if (categories.length > 0) {
-            const skincare = categories.find(c => c.name === 'Skincare')
-
-            setForm(f => ({
-                ...f,
-                category: String(skincare?.id ?? categories[0].id)
-            }))
         }
     }, [id, editing, products, brands, categories])
 
     const change = e => {
         const { name, value } = e.target
-        setForm(f => ({ ...f, [name]: value }))
+
+        setForm(f => ({
+            ...f,
+            [name]: value
+        }))
     }
 
     const submit = async e => {
@@ -71,8 +79,14 @@ export default function AdminProductForm() {
             return
         }
 
+        // Your backend currently has no PUT endpoint.
+        if (editing) {
+            setError('Editing products is not supported by your current backend yet.')
+            return
+        }
+
         const product = {
-            name: form.name.trim(),
+            name: form.name,
             brand: form.brand ? { id: Number(form.brand) } : null,
             category: form.category ? { id: Number(form.category) } : null,
             price: Number(form.price),
@@ -85,12 +99,11 @@ export default function AdminProductForm() {
         try {
             setLoading(true)
 
-            const response = editing
-                ? await axiosClient.put(`/products/${id}`, product)
-                : await axiosClient.post('/products', product)
+            const response = await axiosClient.post('/products', product)
 
             const saved = response.data
 
+            // Update frontend product list
             saveProduct({
                 ...saved,
                 id: String(saved.id),
@@ -100,10 +113,12 @@ export default function AdminProductForm() {
             })
 
             navigate('/admin/products')
-        } catch (err) {
-            console.error('Save product error:', err)
+
+        } catch (error) {
+            console.error('Save product error:', error)
+
             setError(
-                err.response?.data?.message ||
+                error.response?.data?.message ||
                 'Could not save product. Please check your backend.'
             )
         } finally {
@@ -114,7 +129,7 @@ export default function AdminProductForm() {
     return (
         <>
             <Link to="/admin/products" className="inline-flex items-center gap-2 text-sm text-muted">
-                <ArrowLeft size={15} /> Back to products
+                <ArrowLeft size={15}/> Back to products
             </Link>
 
             <div className="mt-5">
@@ -133,17 +148,9 @@ export default function AdminProductForm() {
 
             <form onSubmit={submit} className="mt-8 max-w-3xl rounded-2xl border border-line bg-white p-6 md:p-8">
                 <div className="grid gap-5 md:grid-cols-2">
-
                     <label className="text-xs font-semibold">
                         Product name *
-                        <input
-                            className="field mt-2"
-                            name="name"
-                            value={form.name}
-                            onChange={change}
-                            required
-                            placeholder="e.g. Daily Hydrating Serum"
-                        />
+                        <input className="field mt-2" name="name" value={form.name} onChange={change} required placeholder="e.g. Daily Hydrating Serum"/>
                     </label>
 
                     <label className="text-xs font-semibold">
@@ -172,31 +179,12 @@ export default function AdminProductForm() {
 
                     <label className="text-xs font-semibold">
                         Price (USD) *
-                        <input
-                            className="field mt-2"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            name="price"
-                            value={form.price}
-                            onChange={change}
-                            required
-                            placeholder="0.00"
-                        />
+                        <input className="field mt-2" type="number" min="0" step="0.01" name="price" value={form.price} onChange={change} required placeholder="0.00"/>
                     </label>
 
                     <label className="text-xs font-semibold">
                         Stock quantity *
-                        <input
-                            className="field mt-2"
-                            type="number"
-                            min="0"
-                            name="stock"
-                            value={form.stock}
-                            onChange={change}
-                            required
-                            placeholder="0"
-                        />
+                        <input className="field mt-2" type="number" min="0" name="stock" value={form.stock} onChange={change} required placeholder="0"/>
                     </label>
 
                     <label className="text-xs font-semibold">
@@ -209,35 +197,20 @@ export default function AdminProductForm() {
 
                     <label className="text-xs font-semibold md:col-span-2">
                         Image URL
-                        <input
-                            className="field mt-2"
-                            name="imageUrl"
-                            value={form.imageUrl}
-                            onChange={change}
-                            placeholder="https://example.com/product.jpg"
-                        />
+                        <input className="field mt-2" name="imageUrl" value={form.imageUrl} onChange={change} placeholder="https://example.com/product.jpg"/>
                     </label>
 
                     <label className="text-xs font-semibold md:col-span-2">
                         Description
-                        <textarea
-                            className="field mt-2 min-h-28"
-                            name="description"
-                            value={form.description}
-                            onChange={change}
-                            placeholder="Describe the product..."
-                        />
+                        <textarea className="field mt-2 min-h-28" name="description" value={form.description} onChange={change} placeholder="Describe the product..."/>
                     </label>
                 </div>
 
-                {error && (
-                    <p className="mt-4 text-sm text-rose">{error}</p>
-                )}
+                {error && <p className="mt-4 text-sm text-rose">{error}</p>}
 
                 <div className="mt-7 flex flex-wrap gap-3 border-t border-line pt-6">
                     <button className="btn-primary" disabled={loading}>
-                        <Save size={16} />
-                        {loading ? 'Saving...' : 'Save product'}
+                        <Save size={16}/> {loading ? 'Saving...' : 'Save product'}
                     </button>
 
                     <Link to="/admin/products" className="btn-outline">

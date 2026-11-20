@@ -1,16 +1,15 @@
-
 package com.lumiere.lumiere_beauty.controller;
 
 import com.lumiere.lumiere_beauty.model.Address;
 import com.lumiere.lumiere_beauty.service.AddressService;
 
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
 
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api/addresses")
+
 public class AddressController {
 
     private final AddressService addressService;
@@ -19,35 +18,28 @@ public class AddressController {
         this.addressService = addressService;
     }
 
-    @GetMapping("/user/{userId}")
-    public List<Address> getUserAddresses(@PathVariable Long userId) {
-        return addressService.getUserAddresses(userId);
+    // Create Address
+    @PostMapping
+    public Address createAddress(@RequestBody Address address) {
+        return addressService.createAddress(address);
     }
 
-    @PostMapping("/user/{userId}")
-    public Address createAddress(
-            @PathVariable Long userId,
-            @RequestBody Address address) {
-
-        return addressService.createAddress(userId, address);
+    // Get All Addresses
+    @GetMapping
+    public List<Address> getAllAddresses() {
+        return addressService.getAllAddresses();
     }
+//     @GetMapping("/test")
+// public Address testAddress() {
 
-    @PutMapping("/{addressId}/user/{userId}")
-    public Address updateAddress(
-            @PathVariable Long addressId,
-            @PathVariable Long userId,
-            @RequestBody Address address) {
+//     Address address = new Address();
 
-        return addressService.updateAddress(
-            addressId, userId, address
-        );
-    }
+//     address.setId(1L);
+//     address.setRecipientName("Chan Samnang");
+//     address.setPhone("012345678");
+//     address.setAddress("Street 123, Phnom Penh");
+//     address.setCity("Phnom Penh");
 
-    @DeleteMapping("/{addressId}/user/{userId}")
-    public void deleteAddress(
-            @PathVariable Long addressId,
-            @PathVariable Long userId) {
-
-        addressService.deleteAddress(addressId, userId);
-    }
+//     return address;
+// }
 }
