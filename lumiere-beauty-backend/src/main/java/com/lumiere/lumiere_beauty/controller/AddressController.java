@@ -1,15 +1,16 @@
+
 package com.lumiere.lumiere_beauty.controller;
 
 import com.lumiere.lumiere_beauty.model.Address;
 import com.lumiere.lumiere_beauty.service.AddressService;
 
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api/addresses")
-
 public class AddressController {
 
     private final AddressService addressService;
@@ -18,28 +19,35 @@ public class AddressController {
         this.addressService = addressService;
     }
 
-    // Create Address
-    @PostMapping
-    public Address createAddress(@RequestBody Address address) {
-        return addressService.createAddress(address);
+    @GetMapping("/user/{userId}")
+    public List<Address> getUserAddresses(@PathVariable Long userId) {
+        return addressService.getUserAddresses(userId);
     }
 
-    // Get All Addresses
-    @GetMapping
-    public List<Address> getAllAddresses() {
-        return addressService.getAllAddresses();
+    @PostMapping("/user/{userId}")
+    public Address createAddress(
+            @PathVariable Long userId,
+            @RequestBody Address address) {
+
+        return addressService.createAddress(userId, address);
     }
-//     @GetMapping("/test")
-// public Address testAddress() {
 
-//     Address address = new Address();
+    @PutMapping("/{addressId}/user/{userId}")
+    public Address updateAddress(
+            @PathVariable Long addressId,
+            @PathVariable Long userId,
+            @RequestBody Address address) {
 
-//     address.setId(1L);
-//     address.setRecipientName("Chan Samnang");
-//     address.setPhone("012345678");
-//     address.setAddress("Street 123, Phnom Penh");
-//     address.setCity("Phnom Penh");
+        return addressService.updateAddress(
+            addressId, userId, address
+        );
+    }
 
-//     return address;
-// }
+    @DeleteMapping("/{addressId}/user/{userId}")
+    public void deleteAddress(
+            @PathVariable Long addressId,
+            @PathVariable Long userId) {
+
+        addressService.deleteAddress(addressId, userId);
+    }
 }
